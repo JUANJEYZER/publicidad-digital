@@ -621,11 +621,29 @@
             // Limpiar cualquier intervalo previo
             stopSlideshow();
             
-            // Mostrar primer slide
-            showSlide(0);
+            // IMPORTANTE: Silenciar todos los videos antes de empezar
+            const allSlides = document.querySelectorAll('.slide');
+            allSlides.forEach((slide) => {
+                const iframe = slide.querySelector('iframe');
+                const video = slide.querySelector('video');
+                
+                if (iframe && iframe.src.includes('youtube.com')) {
+                    const currentSrc = iframe.src;
+                    const mutedSrc = currentSrc.replace(/mute=\d/, 'mute=1');
+                    iframe.src = mutedSrc;
+                }
+                if (video) {
+                    video.pause();
+                    video.muted = true;
+                    video.currentTime = 0;
+                }
+            });
             
-            // Iniciar contador
-            startCountdown();
+            // Mostrar primer slide después de limpiar
+            setTimeout(() => {
+                showSlide(0);
+                startCountdown();
+            }, 500);
         }
 
         function stopSlideshow() {
@@ -697,41 +715,64 @@
 
         function showSlide(index) {
             const allSlides = document.querySelectorAll('.slide');
-            allSlides.forEach((slide, i) => {
-                slide.classList.toggle('active', i === index);
-                
-                // Manejar videos
+            
+            // PRIMERO: Parar y silenciar TODOS los videos
+            allSlides.forEach((slide) => {
                 const iframe = slide.querySelector('iframe');
                 const video = slide.querySelector('video');
                 
-                if (i === index) {
-                    // Slide activo - reiniciar video
-                    if (iframe && iframe.src.includes('youtube.com')) {
-                        // Para YouTube, recargar iframe para reiniciar video con audio correcto
+                // Pausar y silenciar todos los videos
+                if (iframe && iframe.src.includes('youtube.com')) {
+                    // Para YouTube, cambiar a mute=1 (silenciar)
+                    const currentSrc = iframe.src;
+                    const mutedSrc = currentSrc.replace(/mute=\d/, 'mute=1');
+                    if (currentSrc !== mutedSrc) {
+                        iframe.src = mutedSrc;
+                    }
+                }
+                if (video) {
+                    video.pause();
+                    video.muted = true;
+                    video.currentTime = 0;
+                }
+                
+                // Remover clase activa
+                slide.classList.remove('active');
+            });
+            
+            // SEGUNDO: Activar solo el slide actual
+            if (allSlides[index]) {
+                allSlides[index].classList.add('active');
+                
+                const activeSlide = allSlides[index];
+                const iframe = activeSlide.querySelector('iframe');
+                const video = activeSlide.querySelector('video');
+                
+                // Configurar el video activo
+                if (iframe && iframe.src.includes('youtube.com')) {
+                    // Para YouTube, recargar con la configuración de audio correcta
+                    setTimeout(() => {
                         const currentSrc = iframe.src;
                         const muteParam = config.videoAudio ? '0' : '1';
                         const newSrc = currentSrc.replace(/mute=\d/, `mute=${muteParam}`);
                         
-                        iframe.src = '';
+                        // Forzar recarga del iframe para detener audio anterior
+                        iframe.src = 'about:blank';
                         setTimeout(() => {
                             iframe.src = newSrc;
-                        }, 100);
-                    }
-                    if (video) {
-                        video.currentTime = 0;
-                        video.muted = !config.videoAudio;
-                        video.play().catch(e => console.log('Autoplay bloqueado:', e));
-                    }
-                } else {
-                    // Slides inactivos - pausar videos
-                    if (video) {
-                        video.pause();
-                    }
+                        }, 200);
+                    }, 100);
                 }
-            });
+                
+                if (video) {
+                    video.currentTime = 0;
+                    video.muted = !config.videoAudio;
+                    video.play().catch(e => console.log('Autoplay bloqueado:', e));
+                }
+            }
             
             currentSlide = index;
-            console.log(`Mostrando slide ${index + 1}/${slides.length}`);
+            console.log(`Mostrando slide ${index + 1}/${slides.length} - Audio: ${config.videoAudio ? 'ON' : 'OFF'}`);
         }
 
         function toggleAudio() {
@@ -739,11 +780,26 @@
             localStorage.setItem('displayConfig', JSON.stringify(config));
             updateAudioButton();
             
-            // Actualizar video actual si es un video
-            const activeSlide = document.querySelector('.slide.active');
-            if (activeSlide && activeSlide.classList.contains('video')) {
-                showSlide(currentSlide); // Recargar slide actual con nuevo audio
-            }
+            // Silenciar TODOS los videos primero
+            const allSlides = document.querySelectorAll('.slide');
+            allSlides.forEach((slide) => {
+                const iframe = slide.querySelector('iframe');
+                const video = slide.querySelector('video');
+                
+                if (iframe && iframe.src.includes('youtube.com')) {
+                    const currentSrc = iframe.src;
+                    const mutedSrc = currentSrc.replace(/mute=\d/, 'mute=1');
+                    iframe.src = mutedSrc;
+                }
+                if (video) {
+                    video.muted = true;
+                }
+            });
+            
+            // Luego recargar solo el slide actual con la configuración correcta
+            setTimeout(() => {
+                showSlide(currentSlide);
+            }, 300);
             
             updateStatus(config.videoAudio ? 'Audio activado' : 'Audio desactivado');
         }
