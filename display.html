@@ -210,6 +210,18 @@
             z-index: 1000;
         }
 
+        .slide-info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0.7;
+        }
+
         .loading {
             text-align: center;
             font-size: 2em;
@@ -260,6 +272,27 @@
             opacity: 0.9;
         }
 
+        /* Botón para forzar play en videos */
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 100;
+            display: none;
+        }
+
+        .play-button.visible {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .slide.banner h1 {
                 font-size: 2.5em;
@@ -298,8 +331,11 @@
         <label>URL de Google Apps Script:</label>
         <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
         
-        <label>Duración por slide (segundos):</label>
-        <input type="number" id="duration" value="5" min="1" max="60">
+        <label>Duración por defecto (segundos):</label>
+        <input type="number" id="defaultDuration" value="5" min="1" max="60">
+        <small style="color: #aaa; font-size: 12px;">
+            Se usa solo si no hay duración específica en Google Sheets
+        </small>
         
         <label>Efecto de transición:</label>
         <select id="transition">
@@ -326,6 +362,7 @@
     </div>
 
     <div class="status" id="status">Sin configurar</div>
+    <div class="slide-info" id="slideInfo">Slide: 0/0 | Duración: 0s</div>
 
     <div class="controls">
         <button onclick="toggleConfig()" title="Configuración">⚙️</button>
@@ -338,9 +375,12 @@
         let currentSlide = 0;
         let isPaused = false;
         let slideInterval;
+        let currentSlideDuration = 5;
+        let remainingTime = 0;
+        let countdownInterval;
         let config = {
             scriptUrl: '',
-            duration: 5,
+            defaultDuration: 5,
             transition: 'fade'
         };
 
@@ -364,7 +404,7 @@
             if (saved) {
                 config = JSON.parse(saved);
                 document.getElementById('scriptUrl').value = config.scriptUrl || '';
-                document.getElementById('duration').value = config.duration || 5;
+                document.getElementById('defaultDuration').value = config.defaultDuration || 5;
                 document.getElementById('transition').value = config.transition || 'fade';
                 
                 if (config.scriptUrl) {
@@ -376,7 +416,7 @@
 
         function saveAndStart() {
             const scriptUrl = document.getElementById('scriptUrl').value.trim();
-            const duration = parseInt(document.getElementById('duration').value) || 5;
+            const defaultDuration = parseInt(document.getElementById('defaultDuration').value) || 5;
             const transition = document.getElementById('transition').value;
 
             if (!scriptUrl) {
@@ -384,7 +424,7 @@
                 return;
             }
 
-            config = { scriptUrl, duration, transition };
+            config = { scriptUrl, defaultDuration, transition };
             localStorage.setItem('displayConfig', JSON.stringify(config));
             
             updateStatus('Configuración guardada');
@@ -460,8 +500,15 @@
                 const description = slide.Descripcion || slide.descripcion || '';
                 const tipo = (slide.Tipo || slide.tipo || '').toLowerCase();
                 const url = slide.URL_Archivo || slide.url_archivo || '';
+                
+                // Obtener duración personalizada de Google Sheets
+                const customDuration = slide.Duracion || slide.duracion;
+                const slideDuration = customDuration && customDuration > 0 ? parseInt(customDuration) : config.defaultDuration;
+                
+                // Guardar duración en el elemento para uso posterior
+                slideElement.dataset.duration = slideDuration;
 
-                console.log(`Slide ${index}:`, { title, tipo, url, description });
+                console.log(`Slide ${index}:`, { title, tipo, url, description, duration: slideDuration });
 
                 if (tipo === 'image' || tipo === 'imagen') {
                     slideElement.classList.add('image');
@@ -512,7 +559,7 @@
                         
                         if (videoId) {
                             const iframe = document.createElement('iframe');
-                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1`;
+                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0`;
                             iframe.allow = 'autoplay; encrypted-media';
                             slideElement.appendChild(iframe);
                         } else {
@@ -525,20 +572,61 @@
                         }
                         
                     } else if (url.includes('drive.google.com')) {
-                        // Google Drive video - usar iframe
+                        // Google Drive video - usar iframe con autoplay
                         const iframe = document.createElement('iframe');
                         
-                        // Extraer ID y crear URL embed
+                        // Extraer ID y crear URL embed con autoplay
                         const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
                         if (match) {
                             const fileId = match[1];
-                            iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+                            iframe.src = `https://drive.google.com/file/d/${fileId}/preview?autoplay=1`;
                         } else {
-                            iframe.src = url;
+                            iframe.src = url + (url.includes('?') ? '&' : '?') + 'autoplay=1';
                         }
                         
                         iframe.allow = 'autoplay';
+                        iframe.setAttribute('allowfullscreen', '');
+                        
+                        // Agregar evento para intentar forzar reproducción
+                        iframe.onload = () => {
+                            console.log('Iframe de Google Drive cargado');
+                            // Enviar mensaje al iframe para intentar reproducir
+                            setTimeout(() => {
+                                try {
+                                    iframe.contentWindow.postMessage('{"event":"video-play"}', '*');
+                                } catch (e) {
+                                    console.log('No se pudo enviar mensaje de play al iframe');
+                                }
+                            }, 1000);
+                        };
+                        
                         slideElement.appendChild(iframe);
+                        
+                        // Botón de play manual como respaldo
+                        const playButton = document.createElement('button');
+                        playButton.className = 'play-button';
+                        playButton.innerHTML = '▶️';
+                        playButton.onclick = () => {
+                            // Recargar iframe para forzar reproducción
+                            const currentSrc = iframe.src;
+                            iframe.src = '';
+                            setTimeout(() => {
+                                iframe.src = currentSrc;
+                                playButton.classList.remove('visible');
+                            }, 100);
+                        };
+                        slideElement.appendChild(playButton);
+                        
+                        // Mostrar botón de play después de un tiempo si no se reproduce automáticamente
+                        setTimeout(() => {
+                            if (slideElement.classList.contains('active')) {
+                                playButton.classList.add('visible');
+                                // Ocultarlo automáticamente después de 3 segundos
+                                setTimeout(() => {
+                                    playButton.classList.remove('visible');
+                                }, 3000);
+                            }
+                        }, 2000);
                         
                     } else {
                         // Video directo
@@ -548,6 +636,7 @@
                         video.muted = true;
                         video.loop = true;
                         video.controls = false;
+                        video.setAttribute('playsinline', ''); // Para móviles
                         
                         video.onerror = () => {
                             console.error('Error cargando video:', url);
@@ -594,27 +683,87 @@
 
             stopSlideshow();
             showSlide(0);
-
-            slideInterval = setInterval(() => {
-                if (!isPaused) {
-                    currentSlide = (currentSlide + 1) % slides.length;
-                    showSlide(currentSlide);
-                }
-            }, config.duration * 1000);
+            startCountdown();
         }
 
         function stopSlideshow() {
             if (slideInterval) {
                 clearInterval(slideInterval);
             }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+        }
+
+        function startCountdown() {
+            if (slides.length === 0) return;
+            
+            // Obtener duración del slide actual
+            const activeSlide = document.querySelector('.slide.active');
+            currentSlideDuration = activeSlide ? parseInt(activeSlide.dataset.duration) || config.defaultDuration : config.defaultDuration;
+            remainingTime = currentSlideDuration;
+            
+            updateSlideInfo();
+            
+            countdownInterval = setInterval(() => {
+                if (!isPaused) {
+                    remainingTime--;
+                    updateSlideInfo();
+                    
+                    if (remainingTime <= 0) {
+                        nextSlide();
+                    }
+                }
+            }, 1000);
+        }
+
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % slides.length;
+            showSlide(currentSlide);
+            startCountdown();
         }
 
         function showSlide(index) {
             const allSlides = document.querySelectorAll('.slide');
             allSlides.forEach((slide, i) => {
                 slide.classList.toggle('active', i === index);
+                
+                // Manejar videos
+                const iframe = slide.querySelector('iframe');
+                const video = slide.querySelector('video');
+                const playButton = slide.querySelector('.play-button');
+                
+                if (i === index) {
+                    // Slide activo
+                    if (iframe && slide.classList.contains('video')) {
+                        // Recargar iframe para forzar autoplay
+                        setTimeout(() => {
+                            const src = iframe.src;
+                            if (!src.includes('autoplay=1')) {
+                                iframe.src = src + (src.includes('?') ? '&' : '?') + 'autoplay=1';
+                            }
+                        }, 500);
+                    }
+                    if (video) {
+                        video.currentTime = 0;
+                        video.play().catch(e => console.log('Autoplay bloqueado:', e));
+                    }
+                } else {
+                    // Slides inactivos
+                    if (video) {
+                        video.pause();
+                    }
+                    if (playButton) {
+                        playButton.classList.remove('visible');
+                    }
+                }
             });
             currentSlide = index;
+        }
+
+        function updateSlideInfo() {
+            const info = document.getElementById('slideInfo');
+            info.textContent = `Slide: ${currentSlide + 1}/${slides.length} | Duración: ${currentSlideDuration}s | Restante: ${remainingTime}s`;
         }
 
         function showNoContent() {
@@ -677,6 +826,17 @@
                 loadContent();
             }
         }, 120000);
+
+        // Intentar habilitar autoplay en toda la página
+        document.addEventListener('click', function enableAutoplay() {
+            // Crear y reproducir un audio silencioso para habilitar autoplay
+            const audio = new Audio();
+            audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAABACAAAQAAAQAABAAAAAQAAQAQQAAA';
+            audio.play().catch(() => {});
+            
+            // Remover el listener después del primer clic
+            document.removeEventListener('click', enableAutoplay);
+        }, { once: true });
     </script>
 </body>
 </html>
