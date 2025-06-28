@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - Google Apps Script</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1em;
+        }
+
+        .config-alert {
+            background: #fef5e7;
+            border: 2px solid #f6ad55;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #744210;
+        }
+
+        .config-alert.success {
+            background: #c6f6d5;
+            border-color: #68d391;
+            color: #22543d;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .config-card h2::before {
+            content: '⚙️';
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .upload-card h2::before {
+            content: '📤';
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 15px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .content-list {
+            grid-column: 1 / -1;
+        }
+
+        .content-item {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .content-item .info {
+            flex: 1;
+        }
+
+        .content-item .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        .loading.visible {
+            display: block;
+        }
+
+        .script-url-section {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .script-url-section h3 {
+            color: #234e52;
+            margin-bottom: 15px;
+        }
+
+        .url-input {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Panel Admin - Google Apps Script</h1>
+            <p>Gestiona tu contenido publicitario conectado con Google Sheets</p>
+        </div>
+
+        <!-- Alerta de configuración -->
+        <div id="configAlert" class="config-alert">
+            ⚠️ <strong>Configuración requerida:</strong> Ingresa la URL de tu Google Apps Script para comenzar.
+        </div>
+
+        <div class="main-content">
+            <!-- Sección de configuración -->
+            <div class="card config-card">
+                <h2>Configuración</h2>
+                
+                <div class="script-url-section">
+                    <h3>🔗 URL de Google Apps Script</h3>
+                    <div class="form-group">
+                        <label for="scriptUrl">URL de tu script desplegado:</label>
+                        <input type="url" id="scriptUrl" class="url-input" 
+                               placeholder="https://script.google.com/macros/s/ABC123.../exec">
+                        <small style="color: #718096; font-size: 14px;">
+                            Obtén esta URL después de desplegar tu Google Apps Script
+                        </small>
+                    </div>
+                    <button class="btn" onclick="saveScriptConfig()">
+                        💾 Guardar URL
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="testConnection()">
+                        🔄 Probar Conexión
+                    </button>
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                    <h3>⚙️ Configuración del Display</h3>
+                    <div class="form-group">
+                        <label for="displayDuration">Duración por slide (segundos):</label>
+                        <input type="number" id="displayDuration" value="5" min="1" max="60">
+                    </div>
+                    <div class="form-group">
+                        <label for="transitionEffect">Efecto de transición:</label>
+                        <select id="transitionEffect">
+                            <option value="fade">Fundido</option>
+                            <option value="slide">Deslizar</option>
+                            <option value="zoom">Zoom</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" onclick="saveDisplayConfig()">
+                        💾 Guardar Configuración
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sección de subida -->
+            <div class="card upload-card">
+                <h2>Agregar Contenido</h2>
+                <div class="form-group">
+                    <label for="contentTitle">Título del contenido:</label>
+                    <input type="text" id="contentTitle" placeholder="Ej: Promoción Verano 2024">
+                </div>
+                <div class="form-group">
+                    <label for="contentType">Tipo de contenido:</label>
+                    <select id="contentType">
+                        <option value="banner">Banner (solo texto)</option>
+                        <option value="image">Imagen (URL)</option>
+                        <option value="video">Video (URL)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="urlSection" style="display: none;">
+                    <label for="contentUrl">URL del archivo:</label>
+                    <input type="url" id="contentUrl" placeholder="https://ejemplo.com/imagen.jpg">
+                    <small style="color: #718096; font-size: 14px;">
+                        Para imágenes: usa Google Drive, Imgur, etc.<br>
+                        Para videos: usa YouTube, Vimeo, etc.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="contentDescription">Descripción:</label>
+                    <textarea id="contentDescription" rows="3" placeholder="Descripción del contenido..."></textarea>
+                </div>
+                <button class="btn btn-secondary" onclick="addContent()" id="addBtn">
+                    ➕ Agregar a Google Sheets
+                </button>
+            </div>
+        </div>
+
+        <!-- Lista de contenido -->
+        <div class="card content-list">
+            <h2>📁 Contenido desde Google Sheets</h2>
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-small" onclick="loadContent()">🔄 Actualizar desde Sheets</button>
+                <button class="btn btn-small btn-secondary" onclick="openGoogleSheet()">📊 Abrir Google Sheet</button>
+                <span id="lastUpdate" style="color: #718096; font-size: 14px; margin-left: 15px;"></span>
+            </div>
+            
+            <div class="loading" id="contentLoading">
+                <p>Cargando desde Google Sheets...</p>
+            </div>
+            
+            <div id="contentContainer">
+                <p style="text-align: center; color: #718096; padding: 40px;">
+                    Configura tu Google Apps Script para cargar contenido
+                </p>
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // Variables globales
+        let SCRIPT_URL = '';
+        let sheetUrl = '';
+
+        // Cargar configuración al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
+            setupEventListeners();
+            
+            // Si ya hay URL configurada, cargar contenido
+            if (SCRIPT_URL) {
+                loadContent();
+            }
+        });
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Mostrar/ocultar sección URL según tipo
+            document.getElementById('contentType').addEventListener('change', function() {
+                const urlSection = document.getElementById('urlSection');
+                urlSection.style.display = this.value === 'banner' ? 'none' : 'block';
+            });
+        }
+
+        // Cargar configuración guardada
+        function loadConfig() {
+            const savedUrl = localStorage.getItem('scriptUrl');
+            const savedSheet = localStorage.getItem('sheetUrl');
+            const savedDuration = localStorage.getItem('displayDuration');
+            const savedTransition = localStorage.getItem('transitionEffect');
+
+            if (savedUrl) {
+                SCRIPT_URL = savedUrl;
+                document.getElementById('scriptUrl').value = savedUrl;
+                hideConfigAlert();
+            }
+
+            if (savedSheet) {
+                sheetUrl = savedSheet;
+            }
+
+            if (savedDuration) {
+                document.getElementById('displayDuration').value = savedDuration;
+            }
+
+            if (savedTransition) {
+                document.getElementById('transitionEffect').value = savedTransition;
+            }
+        }
+
+        // Guardar configuración del script
+        function saveScriptConfig() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            
+            if (!url) {
+                showStatus('Por favor ingresa la URL de tu Google Apps Script', 'error');
+                return;
+            }
+
+            if (!url.includes('script.google.com/macros')) {
+                showStatus('URL inválida. Debe ser de Google Apps Script', 'error');
+                return;
+            }
+
+            SCRIPT_URL = url;
+            localStorage.setItem('scriptUrl', url);
+            hideConfigAlert();
+            showStatus('URL guardada correctamente', 'success');
+            
+            // Probar conexión automáticamente
+            testConnection();
+        }
+
+        // Guardar configuración del display
+        function saveDisplayConfig() {
+            const duration = document.getElementById('displayDuration').value;
+            const transition = document.getElementById('transitionEffect').value;
+
+            localStorage.setItem('displayDuration', duration);
+            localStorage.setItem('transitionEffect', transition);
+            
+            showStatus('Configuración del display guardada', 'success');
+        }
+
+        // Probar conexión con Google Apps Script
+        async function testConnection() {
+            if (!SCRIPT_URL) {
+                showStatus('Primero configura la URL de tu script', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Probando conexión...', 'success');
+                const response = await fetch(`${SCRIPT_URL}?action=getData`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                showStatus('✅ Conexión exitosa! Datos recibidos: ' + data.length + ' elementos', 'success');
+                
+                // Cargar contenido automáticamente
+                loadContent();
+                
+            } catch (error) {
+                showStatus('❌ Error de conexión: ' + error.message + '. Verifica que el script esté desplegado correctamente.', 'error');
+            }
+        }
+
+        // Cargar contenido desde Google Apps Script
+        async function loadContent() {
+            if (!SCRIPT_URL) {
+                showStatus('Configura primero tu Google Apps Script', 'error');
+                return;
+            }
+
+            const loading = document.getElementById('contentLoading');
+            loading.classList.add('visible');
+
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getData`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error del servidor: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                loading.classList.remove('visible');
+                displayContentList(data);
+                
+                // Actualizar timestamp
+                const now = new Date().toLocaleString();
+                document.getElementById('lastUpdate').textContent = `Última actualización: ${now}`;
+                
+            } catch (error) {
+                loading.classList.remove('visible');
+                showStatus('Error cargando desde Google Sheets: ' + error.message, 'error');
+            }
+        }
+
+        // Agregar contenido
+        async function addContent() {
+            const titulo = document.getElementById('contentTitle').value.trim();
+            const tipo = document.getElementById('contentType').value;
+            const descripcion = document.getElementById('contentDescription').value.trim();
+            const url = document.getElementById('contentUrl').value.trim();
+
+            if (!titulo) {
+                showStatus('Por favor ingresa un título', 'error');
+                return;
+            }
+
+            if (tipo !== 'banner' && !url) {
+                showStatus('Por favor ingresa la URL del archivo', 'error');
+                return;
+            }
+
+            if (!SCRIPT_URL) {
+                showStatus('Configura primero tu Google Apps Script', 'error');
+                return;
+            }
+
+            const addBtn = document.getElementById('addBtn');
+            addBtn.disabled = true;
+            addBtn.textContent = '⏳ Agregando...';
+
+            try {
+                const payload = {
+                    action: 'addContent',
+                    titulo: titulo,
+                    tipo: tipo,
+                    descripcion: descripcion,
+                    url: tipo === 'banner' ? 'N/A' : url
+                };
+
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('¡Contenido agregado exitosamente a Google Sheets!', 'success');
+                    
+                    // Limpiar formulario
+                    document.getElementById('contentTitle').value = '';
+                    document.getElementById('contentDescription').value = '';
+                    document.getElementById('contentUrl').value = '';
+                    
+                    // Recargar contenido
+                    setTimeout(loadContent, 1000);
+                } else {
+                    showStatus('Error al agregar: ' + (result.error || 'Error desconocido'), 'error');
+                }
+
+            } catch (error) {
+                showStatus('Error de conexión: ' + error.message, 'error');
+            } finally {
+                addBtn.disabled = false;
+                addBtn.textContent = '➕ Agregar a Google Sheets';
+            }
+        }
+
+        // Mostrar lista de contenido
+        function displayContentList(contentData) {
+            const container = document.getElementById('contentContainer');
+            
+            if (!contentData || contentData.length === 0) {
+                container.innerHTML = `
+                    <p style="text-align: center; color: #718096; padding: 40px;">
+                        No hay contenido en Google Sheets.<br>
+                        <small>Agrega tu primer elemento arriba o verifica la conexión.</small>
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = contentData.map(item => `
+                <div class="content-item">
+                    <div class="info">
+                        <strong>${item.Titulo || item.titulo || 'Sin título'}</strong>
+                        <br>
+                        <small>
+                            Tipo: ${item.Tipo || item.tipo || 'N/A'} | 
+                            Fecha: ${formatDate(item.Fecha_Subida || item.fecha_subida)} |
+                            Estado: ${(item.Activo || item.activo) ? '✅ Activo' : '⏸️ Pausado'}
+                        </small>
+                        ${(item.Descripcion || item.descripcion) ? `<br><small>${item.Descripcion || item.descripcion}</small>` : ''}
+                        ${(item.URL_Archivo || item.url_archivo) && (item.URL_Archivo || item.url_archivo) !== 'N/A' ? 
+                          `<br><small>🔗 <a href="${item.URL_Archivo || item.url_archivo}" target="_blank">Ver archivo</a></small>` : ''}
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-small" onclick="toggleContent(${item.ID || item.id})">
+                            ${(item.Activo || item.activo) ? '⏸️ Pausar' : '▶️ Activar'}
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="deleteContent(${item.ID || item.id})">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Activar/desactivar contenido
+        async function toggleContent(id) {
+            if (!SCRIPT_URL) {
+                showStatus('No hay conexión con Google Apps Script', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'toggleContent',
+                        id: id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(`Contenido ${result.newStatus ? 'activado' : 'desactivado'}`, 'success');
+                    setTimeout(loadContent, 500);
+                } else {
+                    showStatus('Error: ' + (result.error || 'Error desconocido'), 'error');
+                }
+
+            } catch (error) {
+                showStatus('Error de conexión: ' + error.message, 'error');
+            }
+        }
+
+        // Eliminar contenido
+        async function deleteContent(id) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este contenido de Google Sheets?')) {
+                return;
+            }
+
+            if (!SCRIPT_URL) {
+                showStatus('No hay conexión con Google Apps Script', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'deleteContent',
+                        id: id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('Contenido eliminado de Google Sheets', 'success');
+                    setTimeout(loadContent, 500);
+                } else {
+                    showStatus('Error al eliminar: ' + (result.error || 'Error desconocido'), 'error');
+                }
+
+            } catch (error) {
+                showStatus('Error de conexión: ' + error.message, 'error');
+            }
+        }
+
+        // Abrir Google Sheets
+        function openGoogleSheet() {
+            if (!SCRIPT_URL) {
+                showStatus('Configura primero tu Google Apps Script', 'error');
+                return;
+            }
+
+            // Extraer ID del script para intentar encontrar la hoja
+            const scriptMatch = SCRIPT_URL.match(/\/macros\/s\/([a-zA-Z0-9-_]+)\//);
+            if (scriptMatch) {
+                // Intentar abrir Apps Script (el usuario puede navegar a la hoja desde ahí)
+                const scriptId = scriptMatch[1];
+                const scriptEditorUrl = `https://script.google.com/d/${scriptId}/edit`;
+                window.open(scriptEditorUrl, '_blank');
+                showStatus('Abriendo Google Apps Script. Desde ahí puedes acceder a tu hoja.', 'success');
+            } else {
+                showStatus('No se pudo extraer el ID del script. Abre tu Google Sheet manualmente.', 'error');
+            }
+        }
+
+        // Formatear fecha
+        function formatDate(dateValue) {
+            if (!dateValue) return 'N/A';
+            
+            try {
+                const date = new Date(dateValue);
+                return date.toLocaleDateString();
+            } catch (e) {
+                return dateValue.toString();
+            }
+        }
+
+        // Ocultar alerta de configuración
+        function hideConfigAlert() {
+            const alert = document.getElementById('configAlert');
+            alert.style.display = 'none';
+        }
+
+        // Mostrar mensajes de estado
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            // Auto-ocultar después de 5 segundos
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+
+            // Si es éxito y hay configuración, actualizar alerta
+            if (type === 'success' && SCRIPT_URL) {
+                const alert = document.getElementById('configAlert');
+                alert.innerHTML = '✅ <strong>Conectado:</strong> Google Apps Script configurado correctamente.';
+                alert.className = 'config-alert success';
+            }
+        }
+
+        // Auto-refresh cada 30 segundos si hay conexión
+        setInterval(() => {
+            if (SCRIPT_URL && document.visibilityState === 'visible') {
+                loadContent();
+            }
+        }, 30000);
+
+        // Recargar cuando la pestaña vuelve a ser visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && SCRIPT_URL) {
+                setTimeout(loadContent, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
