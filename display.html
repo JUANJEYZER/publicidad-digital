@@ -194,6 +194,36 @@
             color: white;
         }
 
+        /* Estilos para video con mensaje de problema */
+        .slide.video-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .slide.video-placeholder h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .slide.video-placeholder p {
+            font-size: 1.5em;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto 20px;
+            line-height: 1.4;
+        }
+
+        .slide.video-placeholder .video-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 1em;
+            opacity: 0.8;
+        }
+
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.02); }
@@ -272,33 +302,27 @@
             opacity: 0.9;
         }
 
-        /* Botón para forzar play en videos */
-        .play-button {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            font-size: 30px;
-            cursor: pointer;
-            z-index: 100;
-            display: none;
+        .youtube-recommendation {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 1em;
         }
 
-        .play-button.visible {
-            display: block;
+        .youtube-recommendation h3 {
+            color: #ff4444;
+            margin-bottom: 10px;
+            font-size: 1.2em;
         }
 
         @media (max-width: 768px) {
-            .slide.banner h1 {
+            .slide.banner h1, .slide.video-placeholder h1 {
                 font-size: 2.5em;
             }
             
-            .slide.banner p {
+            .slide.banner p, .slide.video-placeholder p {
                 font-size: 1.3em;
             }
 
@@ -350,7 +374,8 @@
         </div>
         
         <div style="margin-top: 15px; font-size: 12px; opacity: 0.7; text-align: center;">
-            Una vez configurado, presiona ESC para mostrar/ocultar esta ventana
+            <strong>💡 Para videos:</strong> Recomendamos usar YouTube (No listado)<br>
+            Google Drive tiene restricciones para reproducción automática
         </div>
     </div>
 
@@ -545,11 +570,11 @@
                     }
                     
                 } else if (tipo === 'video') {
-                    slideElement.classList.add('video');
-                    
                     // Detectar tipo de video
                     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                        // YouTube video
+                        // YouTube video - FUNCIONA BIEN
+                        slideElement.classList.add('video');
+                        
                         let videoId = '';
                         if (url.includes('youtube.com/watch?v=')) {
                             videoId = url.split('watch?v=')[1].split('&')[0];
@@ -562,6 +587,17 @@
                             iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0`;
                             iframe.allow = 'autoplay; encrypted-media';
                             slideElement.appendChild(iframe);
+                            
+                            // Agregar overlay si hay título/descripción
+                            if (title || description) {
+                                const overlay = document.createElement('div');
+                                overlay.className = 'video-overlay';
+                                overlay.innerHTML = `
+                                    ${title ? `<h2>${title}</h2>` : ''}
+                                    ${description ? `<p>${description}</p>` : ''}
+                                `;
+                                slideElement.appendChild(overlay);
+                            }
                         } else {
                             slideElement.innerHTML = `
                                 <div class="image-error">
@@ -571,96 +607,28 @@
                             `;
                         }
                         
-                    } else if (url.includes('drive.google.com')) {
-                        // Google Drive video - usar iframe con autoplay
-                        const iframe = document.createElement('iframe');
-                        
-                        // Extraer ID y crear URL embed con autoplay
-                        const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
-                        if (match) {
-                            const fileId = match[1];
-                            iframe.src = `https://drive.google.com/file/d/${fileId}/preview?autoplay=1`;
-                        } else {
-                            iframe.src = url + (url.includes('?') ? '&' : '?') + 'autoplay=1';
-                        }
-                        
-                        iframe.allow = 'autoplay';
-                        iframe.setAttribute('allowfullscreen', '');
-                        
-                        // Agregar evento para intentar forzar reproducción
-                        iframe.onload = () => {
-                            console.log('Iframe de Google Drive cargado');
-                            // Enviar mensaje al iframe para intentar reproducir
-                            setTimeout(() => {
-                                try {
-                                    iframe.contentWindow.postMessage('{"event":"video-play"}', '*');
-                                } catch (e) {
-                                    console.log('No se pudo enviar mensaje de play al iframe');
-                                }
-                            }, 1000);
-                        };
-                        
-                        slideElement.appendChild(iframe);
-                        
-                        // Botón de play manual como respaldo
-                        const playButton = document.createElement('button');
-                        playButton.className = 'play-button';
-                        playButton.innerHTML = '▶️';
-                        playButton.onclick = () => {
-                            // Recargar iframe para forzar reproducción
-                            const currentSrc = iframe.src;
-                            iframe.src = '';
-                            setTimeout(() => {
-                                iframe.src = currentSrc;
-                                playButton.classList.remove('visible');
-                            }, 100);
-                        };
-                        slideElement.appendChild(playButton);
-                        
-                        // Mostrar botón de play después de un tiempo si no se reproduce automáticamente
-                        setTimeout(() => {
-                            if (slideElement.classList.contains('active')) {
-                                playButton.classList.add('visible');
-                                // Ocultarlo automáticamente después de 3 segundos
-                                setTimeout(() => {
-                                    playButton.classList.remove('visible');
-                                }, 3000);
-                            }
-                        }, 2000);
-                        
                     } else {
-                        // Video directo
-                        const video = document.createElement('video');
-                        video.src = url;
-                        video.autoplay = true;
-                        video.muted = true;
-                        video.loop = true;
-                        video.controls = false;
-                        video.setAttribute('playsinline', ''); // Para móviles
-                        
-                        video.onerror = () => {
-                            console.error('Error cargando video:', url);
-                            slideElement.innerHTML = `
-                                <div class="image-error">
-                                    <h2>❌ Error cargando video</h2>
-                                    <p><strong>${title}</strong></p>
-                                    <p style="font-size: 0.8em; margin-top: 10px;">URL: ${url}</p>
+                        // Google Drive u otros videos - MOSTRAR COMO BANNER CON RECOMENDACIÓN
+                        slideElement.classList.add('video-placeholder');
+                        slideElement.innerHTML = `
+                            <div>
+                                <h1>🎥 ${title}</h1>
+                                <p>${description}</p>
+                                <div class="video-info">
+                                    <p><strong>📁 Archivo de video detectado</strong></p>
+                                    <p style="font-size: 0.9em; margin-top: 10px;">
+                                        Google Drive bloquea la reproducción automática por seguridad
+                                    </p>
                                 </div>
-                            `;
-                        };
-                        
-                        slideElement.appendChild(video);
-                    }
-                    
-                    // Agregar overlay con título y descripción
-                    if (title || description) {
-                        const overlay = document.createElement('div');
-                        overlay.className = 'video-overlay';
-                        overlay.innerHTML = `
-                            ${title ? `<h2>${title}</h2>` : ''}
-                            ${description ? `<p>${description}</p>` : ''}
+                                <div class="youtube-recommendation">
+                                    <h3>🚀 Recomendación:</h3>
+                                    <p>Para reproducción automática, sube tu video a <strong>YouTube</strong> como "No listado" y usa esa URL en Google Sheets</p>
+                                    <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">
+                                        YouTube → Subir → Visibilidad: "No listado" → Copiar enlace
+                                    </p>
+                                </div>
+                            </div>
                         `;
-                        slideElement.appendChild(overlay);
                     }
                     
                 } else {
@@ -728,22 +696,12 @@
             allSlides.forEach((slide, i) => {
                 slide.classList.toggle('active', i === index);
                 
-                // Manejar videos
+                // Manejar videos de YouTube
                 const iframe = slide.querySelector('iframe');
                 const video = slide.querySelector('video');
-                const playButton = slide.querySelector('.play-button');
                 
                 if (i === index) {
                     // Slide activo
-                    if (iframe && slide.classList.contains('video')) {
-                        // Recargar iframe para forzar autoplay
-                        setTimeout(() => {
-                            const src = iframe.src;
-                            if (!src.includes('autoplay=1')) {
-                                iframe.src = src + (src.includes('?') ? '&' : '?') + 'autoplay=1';
-                            }
-                        }, 500);
-                    }
                     if (video) {
                         video.currentTime = 0;
                         video.play().catch(e => console.log('Autoplay bloqueado:', e));
@@ -752,9 +710,6 @@
                     // Slides inactivos
                     if (video) {
                         video.pause();
-                    }
-                    if (playButton) {
-                        playButton.classList.remove('visible');
                     }
                 }
             });
@@ -826,17 +781,6 @@
                 loadContent();
             }
         }, 120000);
-
-        // Intentar habilitar autoplay en toda la página
-        document.addEventListener('click', function enableAutoplay() {
-            // Crear y reproducir un audio silencioso para habilitar autoplay
-            const audio = new Audio();
-            audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAABACAAAQAAAQAABAAAAAQAAQAQQAAA';
-            audio.play().catch(() => {});
-            
-            // Remover el listener después del primer clic
-            document.removeEventListener('click', enableAutoplay);
-        }, { once: true });
     </script>
 </body>
 </html>
