@@ -374,8 +374,8 @@
         </div>
         
         <div style="margin-top: 15px; font-size: 12px; opacity: 0.7; text-align: center;">
-            <strong>💡 Para videos:</strong> Recomendamos usar YouTube (No listado)<br>
-            Google Drive tiene restricciones para reproducción automática
+            <strong>💡 Para videos:</strong> Recomendamos usar YouTube (Oculto/No listado)<br>
+            Los tiempos se controlan desde Google Sheets columna H
         </div>
     </div>
 
@@ -393,13 +393,14 @@
         <button onclick="toggleConfig()" title="Configuración">⚙️</button>
         <button onclick="reloadContent()" title="Recargar">🔄</button>
         <button onclick="togglePause()" id="pauseBtn" title="Pausar">⏸️</button>
+        <button onclick="previousSlide()" title="Anterior">⏮️</button>
+        <button onclick="nextSlide()" title="Siguiente">⏭️</button>
     </div>
 
     <script>
         let slides = [];
         let currentSlide = 0;
         let isPaused = false;
-        let slideInterval;
         let currentSlideDuration = 5;
         let remainingTime = 0;
         let countdownInterval;
@@ -421,6 +422,10 @@
                 togglePause();
             } else if (e.key === 'r' || e.key === 'R') {
                 reloadContent();
+            } else if (e.key === 'ArrowLeft') {
+                previousSlide();
+            } else if (e.key === 'ArrowRight') {
+                nextSlide();
             }
         });
 
@@ -580,12 +585,16 @@
                             videoId = url.split('watch?v=')[1].split('&')[0];
                         } else if (url.includes('youtu.be/')) {
                             videoId = url.split('youtu.be/')[1].split('?')[0];
+                        } else if (url.includes('youtube.com/shorts/')) {
+                            videoId = url.split('youtube.com/shorts/')[1].split('?')[0];
                         }
                         
                         if (videoId) {
                             const iframe = document.createElement('iframe');
-                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0`;
+                            // IMPORTANTE: Sin loop para que respete nuestros tiempos
+                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&enablejsapi=1`;
                             iframe.allow = 'autoplay; encrypted-media';
+                            iframe.id = `youtube-${index}`;
                             slideElement.appendChild(iframe);
                             
                             // Agregar overlay si hay título/descripción
@@ -622,9 +631,9 @@
                                 </div>
                                 <div class="youtube-recommendation">
                                     <h3>🚀 Recomendación:</h3>
-                                    <p>Para reproducción automática, sube tu video a <strong>YouTube</strong> como "No listado" y usa esa URL en Google Sheets</p>
+                                    <p>Para reproducción automática, sube tu video a <strong>YouTube</strong> como "Oculto" y usa esa URL en Google Sheets</p>
                                     <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">
-                                        YouTube → Subir → Visibilidad: "No listado" → Copiar enlace
+                                        YouTube → Subir → Visibilidad: "Oculto" → Copiar enlace
                                     </p>
                                 </div>
                             </div>
@@ -649,17 +658,20 @@
         function startSlideshow() {
             if (slides.length === 0) return;
 
+            // Limpiar cualquier intervalo previo
             stopSlideshow();
+            
+            // Mostrar primer slide
             showSlide(0);
+            
+            // Iniciar contador
             startCountdown();
         }
 
         function stopSlideshow() {
-            if (slideInterval) {
-                clearInterval(slideInterval);
-            }
             if (countdownInterval) {
                 clearInterval(countdownInterval);
+                countdownInterval = null;
             }
         }
 
@@ -671,7 +683,14 @@
             currentSlideDuration = activeSlide ? parseInt(activeSlide.dataset.duration) || config.defaultDuration : config.defaultDuration;
             remainingTime = currentSlideDuration;
             
+            console.log(`Iniciando slide ${currentSlide + 1}: duración ${currentSlideDuration}s`);
+            
             updateSlideInfo();
+            
+            // Limpiar intervalo previo por seguridad
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
             
             countdownInterval = setInterval(() => {
                 if (!isPaused) {
@@ -679,6 +698,7 @@
                     updateSlideInfo();
                     
                     if (remainingTime <= 0) {
+                        console.log(`Slide ${currentSlide + 1} completado, cambiando a siguiente`);
                         nextSlide();
                     }
                 }
@@ -686,8 +706,32 @@
         }
 
         function nextSlide() {
+            // Limpiar contador actual
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            
+            // Cambiar slide
             currentSlide = (currentSlide + 1) % slides.length;
             showSlide(currentSlide);
+            
+            // Reiniciar contador para el nuevo slide
+            startCountdown();
+        }
+
+        function previousSlide() {
+            // Limpiar contador actual
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            
+            // Cambiar slide
+            currentSlide = currentSlide === 0 ? slides.length - 1 : currentSlide - 1;
+            showSlide(currentSlide);
+            
+            // Reiniciar contador para el nuevo slide
             startCountdown();
         }
 
@@ -696,24 +740,34 @@
             allSlides.forEach((slide, i) => {
                 slide.classList.toggle('active', i === index);
                 
-                // Manejar videos de YouTube
+                // Manejar videos
                 const iframe = slide.querySelector('iframe');
                 const video = slide.querySelector('video');
                 
                 if (i === index) {
-                    // Slide activo
+                    // Slide activo - reiniciar video
+                    if (iframe && iframe.src.includes('youtube.com')) {
+                        // Para YouTube, recargar iframe para reiniciar video
+                        const currentSrc = iframe.src;
+                        iframe.src = '';
+                        setTimeout(() => {
+                            iframe.src = currentSrc;
+                        }, 100);
+                    }
                     if (video) {
                         video.currentTime = 0;
                         video.play().catch(e => console.log('Autoplay bloqueado:', e));
                     }
                 } else {
-                    // Slides inactivos
+                    // Slides inactivos - pausar videos
                     if (video) {
                         video.pause();
                     }
                 }
             });
+            
             currentSlide = index;
+            console.log(`Mostrando slide ${index + 1}/${slides.length}`);
         }
 
         function updateSlideInfo() {
@@ -765,9 +819,13 @@
             const btn = document.getElementById('pauseBtn');
             btn.textContent = isPaused ? '▶️' : '⏸️';
             updateStatus(isPaused ? 'Pausado' : 'Reproduciendo');
+            
+            console.log(isPaused ? 'Slideshow pausado' : 'Slideshow reanudado');
         }
 
         function reloadContent() {
+            console.log('Recargando contenido...');
+            stopSlideshow();
             loadContent();
         }
 
@@ -775,12 +833,13 @@
             document.getElementById('status').textContent = message;
         }
 
-        // Auto-reload cada 2 minutos
+        // Auto-reload cada 3 minutos
         setInterval(() => {
             if (!isPaused && config.scriptUrl) {
+                console.log('Auto-reload programado');
                 loadContent();
             }
-        }, 120000);
+        }, 180000);
     </script>
 </body>
 </html>
