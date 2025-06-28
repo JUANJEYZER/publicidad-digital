@@ -68,6 +68,24 @@
             background: #5a6fd8;
         }
 
+        .checkbox-group {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            color: #ccc;
+            font-size: 14px;
+        }
+
         .display-container {
             width: 100vw;
             height: 100vh;
@@ -116,7 +134,7 @@
             line-height: 1.4;
         }
 
-        /* Estilos para imágenes */
+        /* Estilos para imágenes - SIN OVERLAY */
         .slide.image {
             background: #000;
         }
@@ -129,31 +147,7 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
-        .slide.image .image-overlay {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px 40px;
-            border-radius: 15px;
-            text-align: center;
-            max-width: 80%;
-        }
-
-        .slide.image .image-overlay h2 {
-            font-size: 2em;
-            margin-bottom: 10px;
-            color: white;
-        }
-
-        .slide.image .image-overlay p {
-            font-size: 1.2em;
-            opacity: 0.9;
-            color: white;
-        }
-
-        /* Estilos para videos */
+        /* Estilos para videos - SIN OVERLAY */
         .slide.video {
             background: #000;
         }
@@ -168,30 +162,6 @@
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-        }
-
-        .slide.video .video-overlay {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px 40px;
-            border-radius: 15px;
-            text-align: center;
-            max-width: 80%;
-        }
-
-        .slide.video .video-overlay h2 {
-            font-size: 2em;
-            margin-bottom: 10px;
-            color: white;
-        }
-
-        .slide.video .video-overlay p {
-            font-size: 1.2em;
-            opacity: 0.9;
-            color: white;
         }
 
         /* Estilos para video con mensaje de problema */
@@ -330,22 +300,6 @@
                 min-width: 90%;
                 max-width: 90%;
             }
-
-            .slide.image .image-overlay,
-            .slide.video .video-overlay {
-                bottom: 20px;
-                padding: 15px 20px;
-            }
-
-            .slide.image .image-overlay h2,
-            .slide.video .video-overlay h2 {
-                font-size: 1.5em;
-            }
-
-            .slide.image .image-overlay p,
-            .slide.video .video-overlay p {
-                font-size: 1em;
-            }
         }
     </style>
 </head>
@@ -361,6 +315,14 @@
             Se usa solo si no hay duración específica en Google Sheets
         </small>
         
+        <div class="checkbox-group">
+            <input type="checkbox" id="videoAudio" checked>
+            <label for="videoAudio">🔊 Reproducir audio en videos</label>
+        </div>
+        <small style="color: #aaa; font-size: 12px; display: block; margin-bottom: 15px;">
+            Desactiva para videos mudos (recomendado para espacios públicos)
+        </small>
+        
         <label>Efecto de transición:</label>
         <select id="transition">
             <option value="fade">Fundido</option>
@@ -374,8 +336,10 @@
         </div>
         
         <div style="margin-top: 15px; font-size: 12px; opacity: 0.7; text-align: center;">
-            <strong>💡 Para videos:</strong> Recomendamos usar YouTube (Oculto/No listado)<br>
-            Los tiempos se controlan desde Google Sheets columna H
+            <strong>💡 Cambios:</strong><br>
+            • Videos e imágenes sin títulos superpuestos<br>
+            • Opción de audio en videos<br>
+            • Tiempos controlados desde Google Sheets columna H
         </div>
     </div>
 
@@ -395,6 +359,7 @@
         <button onclick="togglePause()" id="pauseBtn" title="Pausar">⏸️</button>
         <button onclick="previousSlide()" title="Anterior">⏮️</button>
         <button onclick="nextSlide()" title="Siguiente">⏭️</button>
+        <button onclick="toggleAudio()" id="audioBtn" title="Audio">🔊</button>
     </div>
 
     <script>
@@ -407,7 +372,8 @@
         let config = {
             scriptUrl: '',
             defaultDuration: 5,
-            transition: 'fade'
+            transition: 'fade',
+            videoAudio: true
         };
 
         // Cargar configuración al inicio
@@ -426,6 +392,8 @@
                 previousSlide();
             } else if (e.key === 'ArrowRight') {
                 nextSlide();
+            } else if (e.key === 'm' || e.key === 'M') {
+                toggleAudio();
             }
         });
 
@@ -436,6 +404,9 @@
                 document.getElementById('scriptUrl').value = config.scriptUrl || '';
                 document.getElementById('defaultDuration').value = config.defaultDuration || 5;
                 document.getElementById('transition').value = config.transition || 'fade';
+                document.getElementById('videoAudio').checked = config.videoAudio !== false;
+                
+                updateAudioButton();
                 
                 if (config.scriptUrl) {
                     hideConfig();
@@ -448,16 +419,18 @@
             const scriptUrl = document.getElementById('scriptUrl').value.trim();
             const defaultDuration = parseInt(document.getElementById('defaultDuration').value) || 5;
             const transition = document.getElementById('transition').value;
+            const videoAudio = document.getElementById('videoAudio').checked;
 
             if (!scriptUrl) {
                 alert('Por favor ingresa la URL de tu Google Apps Script');
                 return;
             }
 
-            config = { scriptUrl, defaultDuration, transition };
+            config = { scriptUrl, defaultDuration, transition, videoAudio };
             localStorage.setItem('displayConfig', JSON.stringify(config));
             
             updateStatus('Configuración guardada');
+            updateAudioButton();
             hideConfig();
             loadContent();
         }
@@ -564,15 +537,7 @@
                     
                     slideElement.appendChild(img);
                     
-                    if (title || description) {
-                        const overlay = document.createElement('div');
-                        overlay.className = 'image-overlay';
-                        overlay.innerHTML = `
-                            ${title ? `<h2>${title}</h2>` : ''}
-                            ${description ? `<p>${description}</p>` : ''}
-                        `;
-                        slideElement.appendChild(overlay);
-                    }
+                    // NO agregar overlay para imágenes
                     
                 } else if (tipo === 'video') {
                     // Detectar tipo de video
@@ -591,22 +556,17 @@
                         
                         if (videoId) {
                             const iframe = document.createElement('iframe');
-                            // IMPORTANTE: Sin loop para que respete nuestros tiempos
-                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&enablejsapi=1`;
+                            
+                            // Configurar audio según la opción
+                            const muteParam = config.videoAudio ? '0' : '1';
+                            
+                            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muteParam}&controls=0&modestbranding=1&rel=0&enablejsapi=1`;
                             iframe.allow = 'autoplay; encrypted-media';
                             iframe.id = `youtube-${index}`;
                             slideElement.appendChild(iframe);
                             
-                            // Agregar overlay si hay título/descripción
-                            if (title || description) {
-                                const overlay = document.createElement('div');
-                                overlay.className = 'video-overlay';
-                                overlay.innerHTML = `
-                                    ${title ? `<h2>${title}</h2>` : ''}
-                                    ${description ? `<p>${description}</p>` : ''}
-                                `;
-                                slideElement.appendChild(overlay);
-                            }
+                            // NO agregar overlay para videos
+                            
                         } else {
                             slideElement.innerHTML = `
                                 <div class="image-error">
@@ -641,7 +601,7 @@
                     }
                     
                 } else {
-                    // Banner por defecto
+                    // Banner por defecto - SÍ mantiene título y descripción
                     slideElement.classList.add('banner');
                     slideElement.innerHTML = `
                         <div>
@@ -747,15 +707,19 @@
                 if (i === index) {
                     // Slide activo - reiniciar video
                     if (iframe && iframe.src.includes('youtube.com')) {
-                        // Para YouTube, recargar iframe para reiniciar video
+                        // Para YouTube, recargar iframe para reiniciar video con audio correcto
                         const currentSrc = iframe.src;
+                        const muteParam = config.videoAudio ? '0' : '1';
+                        const newSrc = currentSrc.replace(/mute=\d/, `mute=${muteParam}`);
+                        
                         iframe.src = '';
                         setTimeout(() => {
-                            iframe.src = currentSrc;
+                            iframe.src = newSrc;
                         }, 100);
                     }
                     if (video) {
                         video.currentTime = 0;
+                        video.muted = !config.videoAudio;
                         video.play().catch(e => console.log('Autoplay bloqueado:', e));
                     }
                 } else {
@@ -770,9 +734,30 @@
             console.log(`Mostrando slide ${index + 1}/${slides.length}`);
         }
 
+        function toggleAudio() {
+            config.videoAudio = !config.videoAudio;
+            localStorage.setItem('displayConfig', JSON.stringify(config));
+            updateAudioButton();
+            
+            // Actualizar video actual si es un video
+            const activeSlide = document.querySelector('.slide.active');
+            if (activeSlide && activeSlide.classList.contains('video')) {
+                showSlide(currentSlide); // Recargar slide actual con nuevo audio
+            }
+            
+            updateStatus(config.videoAudio ? 'Audio activado' : 'Audio desactivado');
+        }
+
+        function updateAudioButton() {
+            const audioBtn = document.getElementById('audioBtn');
+            audioBtn.textContent = config.videoAudio ? '🔊' : '🔇';
+            audioBtn.title = config.videoAudio ? 'Audio activado (clic para desactivar)' : 'Audio desactivado (clic para activar)';
+        }
+
         function updateSlideInfo() {
             const info = document.getElementById('slideInfo');
-            info.textContent = `Slide: ${currentSlide + 1}/${slides.length} | Duración: ${currentSlideDuration}s | Restante: ${remainingTime}s`;
+            const audioStatus = config.videoAudio ? '🔊' : '🔇';
+            info.textContent = `Slide: ${currentSlide + 1}/${slides.length} | Duración: ${currentSlideDuration}s | Restante: ${remainingTime}s | ${audioStatus}`;
         }
 
         function showNoContent() {
@@ -840,6 +825,11 @@
                 loadContent();
             }
         }, 180000);
+
+        // Cargar audio button al inicio
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAudioButton();
+        });
     </script>
 </body>
 </html>
