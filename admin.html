@@ -184,6 +184,10 @@
             border: 1px solid #fc8181;
         }
 
+        .status.visible {
+            display: block;
+        }
+
         .content-list {
             grid-column: 1 / -1;
         }
@@ -284,21 +288,12 @@
                 </div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-                    <h3>⚙️ Configuración del Display</h3>
-                    <div class="form-group">
-                        <label for="displayDuration">Duración por slide (segundos):</label>
-                        <input type="number" id="displayDuration" value="5" min="1" max="60">
-                    </div>
-                    <div class="form-group">
-                        <label for="transitionEffect">Efecto de transición:</label>
-                        <select id="transitionEffect">
-                            <option value="fade">Fundido</option>
-                            <option value="slide">Deslizar</option>
-                            <option value="zoom">Zoom</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-secondary" onclick="saveDisplayConfig()">
-                        💾 Guardar Configuración
+                    <h3>⚙️ Enlaces Útiles</h3>
+                    <button class="btn btn-small" onclick="openGoogleSheet()" style="margin-top: 10px;">
+                        📊 Abrir Google Sheets
+                    </button>
+                    <button class="btn btn-small" onclick="openDisplay()" style="margin-top: 10px;">
+                        🖥️ Abrir Display
                     </button>
                 </div>
             </div>
@@ -341,7 +336,6 @@
             <h2>📁 Contenido desde Google Sheets</h2>
             <div style="margin-bottom: 20px;">
                 <button class="btn btn-small" onclick="loadContent()">🔄 Actualizar desde Sheets</button>
-                <button class="btn btn-small btn-secondary" onclick="openGoogleSheet()">📊 Abrir Google Sheet</button>
                 <span id="lastUpdate" style="color: #718096; font-size: 14px; margin-left: 15px;"></span>
             </div>
             
@@ -362,7 +356,6 @@
     <script>
         // Variables globales
         let SCRIPT_URL = '';
-        let sheetUrl = '';
 
         // Cargar configuración al iniciar
         document.addEventListener('DOMContentLoaded', function() {
@@ -387,26 +380,11 @@
         // Cargar configuración guardada
         function loadConfig() {
             const savedUrl = localStorage.getItem('scriptUrl');
-            const savedSheet = localStorage.getItem('sheetUrl');
-            const savedDuration = localStorage.getItem('displayDuration');
-            const savedTransition = localStorage.getItem('transitionEffect');
 
             if (savedUrl) {
                 SCRIPT_URL = savedUrl;
                 document.getElementById('scriptUrl').value = savedUrl;
                 hideConfigAlert();
-            }
-
-            if (savedSheet) {
-                sheetUrl = savedSheet;
-            }
-
-            if (savedDuration) {
-                document.getElementById('displayDuration').value = savedDuration;
-            }
-
-            if (savedTransition) {
-                document.getElementById('transitionEffect').value = savedTransition;
             }
         }
 
@@ -433,17 +411,6 @@
             testConnection();
         }
 
-        // Guardar configuración del display
-        function saveDisplayConfig() {
-            const duration = document.getElementById('displayDuration').value;
-            const transition = document.getElementById('transitionEffect').value;
-
-            localStorage.setItem('displayDuration', duration);
-            localStorage.setItem('transitionEffect', transition);
-            
-            showStatus('Configuración del display guardada', 'success');
-        }
-
         // Probar conexión con Google Apps Script
         async function testConnection() {
             if (!SCRIPT_URL) {
@@ -453,17 +420,20 @@
 
             try {
                 showStatus('Probando conexión...', 'success');
-                const response = await fetch(`${SCRIPT_URL}?action=getData`);
+                const response = await fetch(`${SCRIPT_URL}?action=test&t=${Date.now()}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                showStatus('✅ Conexión exitosa! Datos recibidos: ' + data.length + ' elementos', 'success');
                 
-                // Cargar contenido automáticamente
-                loadContent();
+                if (data.success) {
+                    showStatus('✅ Conexión exitosa! ' + data.message, 'success');
+                    loadContent();
+                } else {
+                    showStatus('❌ Error del script: ' + (data.error || 'Error desconocido'), 'error');
+                }
                 
             } catch (error) {
                 showStatus('❌ Error de conexión: ' + error.message + '. Verifica que el script esté desplegado correctamente.', 'error');
@@ -481,7 +451,7 @@
             loading.classList.add('visible');
 
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=getData`);
+                const response = await fetch(`${SCRIPT_URL}?action=getData&t=${Date.now()}`);
                 
                 if (!response.ok) {
                     throw new Error(`Error del servidor: ${response.status}`);
@@ -502,7 +472,7 @@
             }
         }
 
-        // Agregar contenido
+        // Agregar contenido - VERSIÓN CORREGIDA
         async function addContent() {
             const titulo = document.getElementById('contentTitle').value.trim();
             const tipo = document.getElementById('contentType').value;
@@ -529,22 +499,16 @@
             addBtn.textContent = '⏳ Agregando...';
 
             try {
-                const payload = {
+                // Usar GET en lugar de POST para evitar problemas CORS
+                const params = new URLSearchParams({
                     action: 'addContent',
                     titulo: titulo,
                     tipo: tipo,
                     descripcion: descripcion,
                     url: tipo === 'banner' ? 'N/A' : url
-                };
-
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
                 });
 
+                const response = await fetch(`${SCRIPT_URL}?${params}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -617,17 +581,7 @@
             }
 
             try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'toggleContent',
-                        id: id
-                    })
-                });
-
+                const response = await fetch(`${SCRIPT_URL}?action=toggleContent&id=${id}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -654,17 +608,7 @@
             }
 
             try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'deleteContent',
-                        id: id
-                    })
-                });
-
+                const response = await fetch(`${SCRIPT_URL}?action=deleteContent&id=${id}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -681,22 +625,18 @@
 
         // Abrir Google Sheets
         function openGoogleSheet() {
-            if (!SCRIPT_URL) {
-                showStatus('Configura primero tu Google Apps Script', 'error');
-                return;
-            }
-
-            // Extraer ID del script para intentar encontrar la hoja
-            const scriptMatch = SCRIPT_URL.match(/\/macros\/s\/([a-zA-Z0-9-_]+)\//);
-            if (scriptMatch) {
-                // Intentar abrir Apps Script (el usuario puede navegar a la hoja desde ahí)
-                const scriptId = scriptMatch[1];
-                const scriptEditorUrl = `https://script.google.com/d/${scriptId}/edit`;
-                window.open(scriptEditorUrl, '_blank');
-                showStatus('Abriendo Google Apps Script. Desde ahí puedes acceder a tu hoja.', 'success');
+            if (SCRIPT_URL) {
+                showStatus('Abre tu Google Sheet manualmente desde tu Google Drive', 'success');
             } else {
-                showStatus('No se pudo extraer el ID del script. Abre tu Google Sheet manualmente.', 'error');
+                showStatus('Configura primero tu Google Apps Script', 'error');
             }
+        }
+
+        // Abrir Display
+        function openDisplay() {
+            const currentUrl = window.location.href;
+            const displayUrl = currentUrl.replace('admin.html', 'display.html');
+            window.open(displayUrl, '_blank');
         }
 
         // Formatear fecha
@@ -721,12 +661,11 @@
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
-            status.className = `status ${type}`;
-            status.style.display = 'block';
+            status.className = `status ${type} visible`;
             
             // Auto-ocultar después de 5 segundos
             setTimeout(() => {
-                status.style.display = 'none';
+                status.classList.remove('visible');
             }, 5000);
 
             // Si es éxito y hay configuración, actualizar alerta
