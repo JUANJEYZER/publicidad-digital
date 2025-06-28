@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Display Publicitario - Google Apps Script</title>
+    <title>Display Publicitario</title>
     <style>
         * {
             margin: 0;
@@ -15,7 +15,57 @@
             background: #000;
             font-family: 'Arial', sans-serif;
             overflow: hidden;
-            cursor: none;
+            color: white;
+        }
+
+        .config-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            min-width: 400px;
+            z-index: 2000;
+            border: 2px solid #667eea;
+        }
+
+        .config-panel.hidden {
+            display: none;
+        }
+
+        .config-panel h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .config-panel input, .config-panel select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            background: #222;
+            color: white;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .config-panel button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .config-panel button:hover {
+            background: #5a6fd8;
         }
 
         .display-container {
@@ -34,76 +84,27 @@
             width: 100%;
             height: 100%;
             opacity: 0;
-            transition: all 0.8s ease-in-out;
+            transition: opacity 0.8s ease-in-out;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            text-align: center;
+            padding: 40px;
         }
 
         .slide.active {
             opacity: 1;
         }
 
-        .slide.fade-in {
-            opacity: 1;
-        }
-
-        .slide.fade-out {
-            opacity: 0;
-        }
-
-        .slide.slide-left {
-            transform: translateX(-100%);
-        }
-
-        .slide.slide-right {
-            transform: translateX(100%);
-        }
-
-        .slide.zoom-in {
-            transform: scale(1.05);
-            opacity: 1;
-        }
-
-        .slide.zoom-out {
-            transform: scale(0.95);
-            opacity: 0;
-        }
-
-        .slide img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            border-radius: 10px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-
-        .slide video {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            border-radius: 10px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-
-        .slide.banner {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .banner-content h1 {
+        .slide h1 {
             font-size: 4em;
             margin-bottom: 20px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
             animation: pulse 3s infinite;
         }
 
-        .banner-content p {
+        .slide p {
             font-size: 1.8em;
             opacity: 0.9;
             max-width: 800px;
@@ -116,220 +117,60 @@
             50% { transform: scale(1.02); }
         }
 
-        .loading {
+        .status {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 2em;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .loading {
             text-align: center;
+            font-size: 2em;
         }
 
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .error {
+            color: #ff6b6b;
+            text-align: center;
+            font-size: 1.5em;
         }
 
         .controls {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            display: none;
-            gap: 10px;
             z-index: 1000;
         }
 
-        .controls.visible {
-            display: flex;
-        }
-
-        .control-btn {
+        .controls button {
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
             padding: 10px 15px;
             border-radius: 20px;
             cursor: pointer;
+            margin-left: 5px;
             backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-            font-size: 16px;
         }
 
-        .control-btn:hover {
+        .controls button:hover {
             background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
         }
 
-        .info-overlay {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-
-        .info-overlay.visible {
-            opacity: 1;
-        }
-
-        .config-overlay {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            min-width: 400px;
-            z-index: 2000;
-            display: none;
-        }
-
-        .config-overlay.visible {
-            display: block;
-        }
-
-        .config-overlay h3 {
-            margin-bottom: 20px;
-            color: #667eea;
-        }
-
-        .config-overlay input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #333;
-            background: #222;
-            color: white;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-        }
-
-        .config-overlay button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
-        .config-overlay button:hover {
-            background: #5a6fd8;
-        }
-
-        .error-message {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(220, 38, 38, 0.95);
-            color: white;
-            padding: 30px 40px;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 3000;
-            max-width: 500px;
-            backdrop-filter: blur(10px);
-        }
-
-        .error-message h2 {
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-
-        .error-message p {
-            margin-bottom: 10px;
-        }
-
-        .no-content {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: rgba(255, 255, 255, 0.7);
-            text-align: center;
-            z-index: 100;
-        }
-
-        .no-content h2 {
-            font-size: 2em;
-            margin-bottom: 20px;
-            opacity: 0.8;
-        }
-
-        .no-content p {
-            font-size: 1.2em;
-            opacity: 0.6;
-        }
-
-        .connection-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .connection-status.visible {
-            opacity: 1;
-        }
-
-        .connection-status.connected {
-            background: rgba(34, 197, 94, 0.8);
-        }
-
-        .connection-status.error {
-            background: rgba(220, 38, 38, 0.8);
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
-            .banner-content h1 {
+            .slide h1 {
                 font-size: 2.5em;
             }
             
-            .banner-content p {
+            .slide p {
                 font-size: 1.3em;
             }
 
-            .controls {
-                bottom: 10px;
-                right: 10px;
-            }
-
-            .control-btn {
-                padding: 8px 12px;
-                font-size: 14px;
-            }
-
-            .config-overlay {
+            .config-panel {
                 min-width: 90%;
                 max-width: 90%;
             }
@@ -337,348 +178,269 @@
     </style>
 </head>
 <body>
-    <div class="display-container" id="displayContainer">
-        <div class="loading" id="loading">
-            <div class="loading-spinner"></div>
-            <p>Conectando con Google Sheets...</p>
-        </div>
-    </div>
-
-    <div class="connection-status" id="connectionStatus">
-        🔗 Conectando...
-    </div>
-
-    <div class="info-overlay" id="infoOverlay">
-        <div><strong>Slide:</strong> <span id="currentSlide">0</span> / <span id="totalSlides">0</span></div>
-        <div><strong>Próximo en:</strong> <span id="countdown">0</span>s</div>
-        <div><strong>Estado:</strong> <span id="status">Cargando...</span></div>
-        <div><strong>Última actualización:</strong> <span id="lastSync">Nunca</span></div>
-        <div><strong>Fuente:</strong> Google Sheets</div>
-    </div>
-
-    <div class="controls" id="controls">
-        <button class="control-btn" onclick="previousSlide()" title="Anterior">⏮️</button>
-        <button class="control-btn" onclick="togglePause()" id="pauseBtn" title="Pausar/Reanudar">⏸️</button>
-        <button class="control-btn" onclick="nextSlide()" title="Siguiente">⏭️</button>
-        <button class="control-btn" onclick="reloadContent()" title="Recargar">🔄</button>
-        <button class="control-btn" onclick="toggleInfo()" title="Información">ℹ️</button>
-        <button class="control-btn" onclick="showConfig()" title="Configuración">⚙️</button>
-        <button class="control-btn" onclick="toggleFullscreen()" title="Pantalla completa">⛶</button>
-    </div>
-
-    <div class="config-overlay" id="configOverlay">
-        <h3>⚙️ Configuración del Display</h3>
+    <div class="config-panel" id="configPanel">
+        <h2>⚙️ Configuración del Display</h2>
         <label>URL de Google Apps Script:</label>
-        <input type="url" id="configScriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
         
         <label>Duración por slide (segundos):</label>
-        <input type="number" id="configDuration" value="5" min="1" max="60">
+        <input type="number" id="duration" value="5" min="1" max="60">
         
         <label>Efecto de transición:</label>
-        <select id="configTransition" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #333; background: #222; color: white; border-radius: 5px;">
+        <select id="transition">
             <option value="fade">Fundido</option>
             <option value="slide">Deslizar</option>
             <option value="zoom">Zoom</option>
         </select>
         
-        <label>Auto-actualización (segundos):</label>
-        <input type="number" id="configAutoRefresh" value="30" min="10" max="300">
-        
-        <div style="margin-top: 20px;">
-            <button onclick="saveConfig()">💾 Guardar</button>
-            <button onclick="testConnection()">🔄 Probar</button>
-            <button onclick="hideConfig()">❌ Cerrar</button>
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="saveAndStart()">🚀 Guardar y Comenzar</button>
+            <button onclick="testConnection()">🔄 Probar Conexión</button>
         </div>
         
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
-            <h4>🎛️ Controles:</h4>
-            <p style="font-size: 12px; opacity: 0.8;">
-                • Doble clic: Mostrar/ocultar controles<br>
-                • Espacio: Pausar/reanudar<br>
-                • ← →: Navegar slides<br>
-                • R: Recargar contenido<br>
-                • I: Mostrar/ocultar información<br>
-                • F11: Pantalla completa
-            </p>
+        <div style="margin-top: 15px; font-size: 12px; opacity: 0.7; text-align: center;">
+            Una vez configurado, presiona ESC para mostrar/ocultar esta ventana
         </div>
     </div>
 
+    <div class="display-container" id="displayContainer">
+        <div class="loading">
+            <h2>⚙️ Configuración Requerida</h2>
+            <p>Configura tu Google Apps Script para comenzar</p>
+        </div>
+    </div>
+
+    <div class="status" id="status">Sin configurar</div>
+
+    <div class="controls">
+        <button onclick="toggleConfig()" title="Configuración">⚙️</button>
+        <button onclick="reloadContent()" title="Recargar">🔄</button>
+        <button onclick="togglePause()" id="pauseBtn" title="Pausar">⏸️</button>
+    </div>
+
     <script>
-        // Variables globales
         let slides = [];
-        let currentSlideIndex = 0;
+        let currentSlide = 0;
         let isPaused = false;
-        let countdownInterval;
-        let autoRefreshInterval;
-        let remainingTime = 5;
+        let slideInterval;
         let config = {
             scriptUrl: '',
             duration: 5,
-            transition: 'fade',
-            autoRefresh: 30
+            transition: 'fade'
         };
 
-        // Inicialización
-        document.addEventListener('DOMContentLoaded', function() {
-            loadConfig();
-            setupEventListeners();
-            
-            if (config.scriptUrl) {
-                connectAndLoad();
-            } else {
-                showConfigRequired();
+        // Cargar configuración al inicio
+        loadConfig();
+
+        // Event listeners
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                toggleConfig();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                togglePause();
+            } else if (e.key === 'r' || e.key === 'R') {
+                reloadContent();
             }
         });
 
-        // Configurar event listeners
-        function setupEventListeners() {
-            // Doble clic para mostrar controles
-            document.addEventListener('dblclick', function() {
-                toggleControls();
-            });
-
-            // Teclado
-            document.addEventListener('keydown', function(e) {
-                switch(e.code) {
-                    case 'Space':
-                        e.preventDefault();
-                        togglePause();
-                        break;
-                    case 'ArrowLeft':
-                        previousSlide();
-                        break;
-                    case 'ArrowRight':
-                        nextSlide();
-                        break;
-                    case 'KeyR':
-                        reloadContent();
-                        break;
-                    case 'KeyI':
-                        toggleInfo();
-                        break;
-                    case 'KeyC':
-                        showConfig();
-                        break;
-                    case 'F11':
-                        e.preventDefault();
-                        toggleFullscreen();
-                        break;
-                    case 'Escape':
-                        hideControls();
-                        hideInfo();
-                        hideConfig();
-                        break;
-                }
-            });
-
-            // Ocultar cursor después de inactividad
-            let mouseTimer;
-            document.addEventListener('mousemove', function() {
-                document.body.style.cursor = 'default';
-                clearTimeout(mouseTimer);
-                mouseTimer = setTimeout(() => {
-                    document.body.style.cursor = 'none';
-                }, 3000);
-            });
-        }
-
-        // Cargar configuración
         function loadConfig() {
-            const saved = localStorage.getItem('displayGoogleConfig');
+            const saved = localStorage.getItem('displayConfig');
             if (saved) {
-                config = { ...config, ...JSON.parse(saved) };
+                config = JSON.parse(saved);
+                document.getElementById('scriptUrl').value = config.scriptUrl || '';
+                document.getElementById('duration').value = config.duration || 5;
+                document.getElementById('transition').value = config.transition || 'fade';
                 
-                // Actualizar inputs de configuración
-                document.getElementById('configScriptUrl').value = config.scriptUrl || '';
-                document.getElementById('configDuration').value = config.duration || 5;
-                document.getElementById('configTransition').value = config.transition || 'fade';
-                document.getElementById('configAutoRefresh').value = config.autoRefresh || 30;
-                
-                remainingTime = config.duration;
+                if (config.scriptUrl) {
+                    hideConfig();
+                    loadContent();
+                }
             }
         }
 
-        // Guardar configuración
-        function saveConfig() {
-            config = {
-                scriptUrl: document.getElementById('configScriptUrl').value.trim(),
-                duration: parseInt(document.getElementById('configDuration').value) || 5,
-                transition: document.getElementById('configTransition').value,
-                autoRefresh: parseInt(document.getElementById('configAutoRefresh').value) || 30
-            };
+        function saveAndStart() {
+            const scriptUrl = document.getElementById('scriptUrl').value.trim();
+            const duration = parseInt(document.getElementById('duration').value) || 5;
+            const transition = document.getElementById('transition').value;
 
-            localStorage.setItem('displayGoogleConfig', JSON.stringify(config));
-            remainingTime = config.duration;
-            
-            updateConnectionStatus('💾 Configuración guardada', 'connected');
-            hideConfig();
-            
-            if (config.scriptUrl) {
-                connectAndLoad();
-            }
-        }
-
-        // Conectar y cargar contenido
-        async function connectAndLoad() {
-            updateConnectionStatus('🔗 Conectando...', '');
-            
-            try {
-                await loadContent();
-                setupAutoRefresh();
-                updateConnectionStatus('✅ Conectado', 'connected');
-                
-                // Ocultar status después de 3 segundos
-                setTimeout(() => {
-                    hideConnectionStatus();
-                }, 3000);
-                
-            } catch (error) {
-                updateConnectionStatus('❌ Error de conexión', 'error');
-            }
-        }
-
-        // Configurar auto-refresh
-        function setupAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-            
-            if (config.autoRefresh > 0) {
-                autoRefreshInterval = setInterval(() => {
-                    if (!isPaused) {
-                        loadContent();
-                    }
-                }, config.autoRefresh * 1000);
-            }
-        }
-
-        // Cargar contenido desde Google Apps Script
-        async function loadContent() {
-            if (!config.scriptUrl) {
-                showConfigRequired();
+            if (!scriptUrl) {
+                alert('Por favor ingresa la URL de tu Google Apps Script');
                 return;
             }
 
-            updateStatus('Cargando desde Google Sheets...');
+            config = { scriptUrl, duration, transition };
+            localStorage.setItem('displayConfig', JSON.stringify(config));
             
-            try {
-                const response = await fetch(`${config.scriptUrl}?action=getData&t=${Date.now()}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
+            updateStatus('Configuración guardada');
+            hideConfig();
+            loadContent();
+        }
 
+        async function testConnection() {
+            const scriptUrl = document.getElementById('scriptUrl').value.trim();
+            
+            if (!scriptUrl) {
+                alert('Por favor ingresa la URL primero');
+                return;
+            }
+
+            updateStatus('Probando conexión...');
+
+            try {
+                const response = await fetch(`${scriptUrl}?action=test&t=${Date.now()}`);
                 const data = await response.json();
                 
-                if (!Array.isArray(data)) {
-                    throw new Error('Formato de datos inválido');
+                if (data.success) {
+                    alert('✅ Conexión exitosa!\n\n' + data.message);
+                    updateStatus('Conexión exitosa');
+                } else {
+                    alert('❌ Error: ' + data.error);
+                    updateStatus('Error de conexión');
                 }
-
-                // Filtrar solo contenido activo
-                const activeContent = data.filter(item => 
-                    (item.Activo === true || item.Activo === 'TRUE' || item.activo === true)
-                );
-
-                if (activeContent.length === 0) {
-                    showNoContent();
-                    return;
-                }
-
-                slides = activeContent;
-                currentSlideIndex = 0;
-                createSlides();
-                startSlideshow();
-                updateStatus('Contenido cargado desde Google Sheets');
-                hideError();
-                
-                // Actualizar timestamp de sincronización
-                updateLastSync();
-
             } catch (error) {
-                console.error('Error loading content:', error);
-                showError('Error conectando con Google Sheets: ' + error.message);
-                updateConnectionStatus('❌ Error', 'error');
+                alert('❌ Error de conexión: ' + error.message);
+                updateStatus('Error de conexión');
             }
         }
 
-        // Crear elementos de slides
-        function createSlides() {
-            const container = document.getElementById('displayContainer');
-            
-            // Limpiar container
-            container.innerHTML = '';
-            
-            if (slides.length === 0) {
-                showNoContent();
+        async function loadContent() {
+            if (!config.scriptUrl) {
+                showConfig();
                 return;
             }
+
+            updateStatus('Cargando contenido...');
+
+            try {
+                const response = await fetch(`${config.scriptUrl}?action=getData&t=${Date.now()}`);
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
+                    slides = data;
+                    createSlides();
+                    startSlideshow();
+                    updateStatus(`${slides.length} slides cargados`);
+                } else {
+                    showNoContent();
+                    updateStatus('Sin contenido activo');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+                updateStatus('Error de carga');
+            }
+        }
+
+        function createSlides() {
+            const container = document.getElementById('displayContainer');
+            container.innerHTML = '';
 
             slides.forEach((slide, index) => {
                 const slideElement = document.createElement('div');
                 slideElement.className = 'slide';
-                slideElement.dataset.index = index;
-
-                const tipo = slide.Tipo || slide.tipo || '';
-                const titulo = slide.Titulo || slide.titulo || 'Sin título';
-                const descripcion = slide.Descripcion || slide.descripcion || '';
-                const url = slide.URL_Archivo || slide.url_archivo || '';
-
-                if (tipo === 'image' || tipo === 'imagen') {
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.alt = titulo;
-                    img.onerror = () => {
-                        console.error('Error loading image:', url);
-                        slideElement.innerHTML = `
-                            <div style="color: white; text-align: center; font-size: 1.5em;">
-                                <p>❌ Error cargando imagen</p>
-                                <p style="font-size: 0.8em; opacity: 0.7;">${titulo}</p>
-                            </div>
-                        `;
-                    };
-                    slideElement.appendChild(img);
-                    
-                } else if (tipo === 'video') {
-                    const video = document.createElement('video');
-                    video.src = url;
-                    video.autoplay = true;
-                    video.muted = true;
-                    video.loop = true;
-                    video.onerror = () => {
-                        console.error('Error loading video:', url);
-                        slideElement.innerHTML = `
-                            <div style="color: white; text-align: center; font-size: 1.5em;">
-                                <p>❌ Error cargando video</p>
-                                <p style="font-size: 0.8em; opacity: 0.7;">${titulo}</p>
-                            </div>
-                        `;
-                    };
-                    slideElement.appendChild(video);
-                    
-                } else if (tipo === 'banner') {
-                    slideElement.classList.add('banner');
-                    slideElement.innerHTML = `
-                        <div class="banner-content">
-                            <h1>${titulo}</h1>
-                            ${descripcion ? `<p>${descripcion}</p>` : ''}
-                        </div>
-                    `;
-                } else {
-                    // Tipo desconocido o banner por defecto
-                    slideElement.classList.add('banner');
-                    slideElement.innerHTML = `
-                        <div class="banner-content">
-                            <h1>${titulo}</h1>
-                            ${descripcion ? `<p>${descripcion}</p>` : ''}
-                        </div>
-                    `;
-                }
+                
+                const title = slide.Titulo || slide.titulo || 'Sin título';
+                const description = slide.Descripcion || slide.descripcion || '';
+                
+                slideElement.innerHTML = `
+                    <div>
+                        <h1>${title}</h1>
+                        ${description ? `<p>${description}</p>` : ''}
+                    </div>
+                `;
 
                 container.appendChild(slideElement);
             });
-
-            updateSlideCounter();
         }
 
-        // Resto de funciones (startSlideshow, showSlide, etc.)
-        // [Las funciones son iguales al display anterior,
+        function startSlideshow() {
+            if (slides.length === 0) return;
+
+            stopSlideshow();
+            showSlide(0);
+
+            slideInterval = setInterval(() => {
+                if (!isPaused) {
+                    currentSlide = (currentSlide + 1) % slides.length;
+                    showSlide(currentSlide);
+                }
+            }, config.duration * 1000);
+        }
+
+        function stopSlideshow() {
+            if (slideInterval) {
+                clearInterval(slideInterval);
+            }
+        }
+
+        function showSlide(index) {
+            const allSlides = document.querySelectorAll('.slide');
+            allSlides.forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+            });
+            currentSlide = index;
+        }
+
+        function showNoContent() {
+            const container = document.getElementById('displayContainer');
+            container.innerHTML = `
+                <div class="error">
+                    <h2>📱 Sin Contenido</h2>
+                    <p>No hay contenido activo en Google Sheets</p>
+                    <p style="font-size: 0.8em; margin-top: 20px;">
+                        Presiona ESC para configurar o agrega contenido desde el Panel Admin
+                    </p>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('displayContainer');
+            container.innerHTML = `
+                <div class="error">
+                    <h2>⚠️ Error</h2>
+                    <p>${message}</p>
+                    <p style="font-size: 0.8em; margin-top: 20px;">
+                        Presiona ESC para configurar
+                    </p>
+                </div>
+            `;
+        }
+
+        function toggleConfig() {
+            const panel = document.getElementById('configPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function showConfig() {
+            document.getElementById('configPanel').classList.remove('hidden');
+        }
+
+        function hideConfig() {
+            document.getElementById('configPanel').classList.add('hidden');
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            btn.textContent = isPaused ? '▶️' : '⏸️';
+            updateStatus(isPaused ? 'Pausado' : 'Reproduciendo');
+        }
+
+        function reloadContent() {
+            loadContent();
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Auto-reload cada 2 minutos
+        setInterval(() => {
+            if (!isPaused && config.scriptUrl) {
+                loadContent();
+            }
+        }, 120000);
+    </script>
+</body>
+</html>
