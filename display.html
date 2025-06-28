@@ -88,28 +88,104 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            text-align: center;
-            padding: 40px;
         }
 
         .slide.active {
             opacity: 1;
         }
 
-        .slide h1 {
+        /* Estilos para banners */
+        .slide.banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .slide.banner h1 {
             font-size: 4em;
             margin-bottom: 20px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
             animation: pulse 3s infinite;
         }
 
-        .slide p {
+        .slide.banner p {
             font-size: 1.8em;
             opacity: 0.9;
             max-width: 800px;
             margin: 0 auto;
             line-height: 1.4;
+        }
+
+        /* Estilos para imágenes */
+        .slide.image {
+            background: #000;
+        }
+
+        .slide.image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .slide.image .image-overlay {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .slide.image .image-overlay h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .slide.image .image-overlay p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            color: white;
+        }
+
+        /* Estilos para videos */
+        .slide.video {
+            background: #000;
+        }
+
+        .slide.video video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .slide.video .video-overlay {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .slide.video .video-overlay h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .slide.video .video-overlay p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            color: white;
         }
 
         @keyframes pulse {
@@ -161,18 +237,51 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        .image-error {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .image-error h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .image-error p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
         @media (max-width: 768px) {
-            .slide h1 {
+            .slide.banner h1 {
                 font-size: 2.5em;
             }
             
-            .slide p {
+            .slide.banner p {
                 font-size: 1.3em;
             }
 
             .config-panel {
                 min-width: 90%;
                 max-width: 90%;
+            }
+
+            .slide.image .image-overlay,
+            .slide.video .video-overlay {
+                bottom: 20px;
+                padding: 15px 20px;
+            }
+
+            .slide.image .image-overlay h2,
+            .slide.video .video-overlay h2 {
+                font-size: 1.5em;
+            }
+
+            .slide.image .image-overlay p,
+            .slide.video .video-overlay p {
+                font-size: 1em;
             }
         }
     </style>
@@ -316,6 +425,8 @@
                 const response = await fetch(`${config.scriptUrl}?action=getData&t=${Date.now()}`);
                 const data = await response.json();
 
+                console.log('Datos recibidos:', data); // Para debug
+
                 if (Array.isArray(data) && data.length > 0) {
                     slides = data;
                     createSlides();
@@ -341,13 +452,90 @@
                 
                 const title = slide.Titulo || slide.titulo || 'Sin título';
                 const description = slide.Descripcion || slide.descripcion || '';
-                
-                slideElement.innerHTML = `
-                    <div>
-                        <h1>${title}</h1>
-                        ${description ? `<p>${description}</p>` : ''}
-                    </div>
-                `;
+                const tipo = (slide.Tipo || slide.tipo || '').toLowerCase();
+                const url = slide.URL_Archivo || slide.url_archivo || '';
+
+                console.log(`Slide ${index}:`, { title, tipo, url, description }); // Para debug
+
+                if (tipo === 'image' || tipo === 'imagen') {
+                    slideElement.classList.add('image');
+                    
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = title;
+                    
+                    img.onload = () => {
+                        console.log('Imagen cargada exitosamente:', url);
+                    };
+                    
+                    img.onerror = () => {
+                        console.error('Error cargando imagen:', url);
+                        slideElement.innerHTML = `
+                            <div class="image-error">
+                                <h2>❌ Error cargando imagen</h2>
+                                <p><strong>${title}</strong></p>
+                                <p style="font-size: 0.8em; margin-top: 10px;">URL: ${url}</p>
+                            </div>
+                        `;
+                    };
+                    
+                    slideElement.appendChild(img);
+                    
+                    // Agregar overlay con título y descripción
+                    if (title || description) {
+                        const overlay = document.createElement('div');
+                        overlay.className = 'image-overlay';
+                        overlay.innerHTML = `
+                            ${title ? `<h2>${title}</h2>` : ''}
+                            ${description ? `<p>${description}</p>` : ''}
+                        `;
+                        slideElement.appendChild(overlay);
+                    }
+                    
+                } else if (tipo === 'video') {
+                    slideElement.classList.add('video');
+                    
+                    const video = document.createElement('video');
+                    video.src = url;
+                    video.autoplay = true;
+                    video.muted = true;
+                    video.loop = true;
+                    video.controls = false;
+                    
+                    video.onerror = () => {
+                        console.error('Error cargando video:', url);
+                        slideElement.innerHTML = `
+                            <div class="image-error">
+                                <h2>❌ Error cargando video</h2>
+                                <p><strong>${title}</strong></p>
+                                <p style="font-size: 0.8em; margin-top: 10px;">URL: ${url}</p>
+                            </div>
+                        `;
+                    };
+                    
+                    slideElement.appendChild(video);
+                    
+                    // Agregar overlay con título y descripción
+                    if (title || description) {
+                        const overlay = document.createElement('div');
+                        overlay.className = 'video-overlay';
+                        overlay.innerHTML = `
+                            ${title ? `<h2>${title}</h2>` : ''}
+                            ${description ? `<p>${description}</p>` : ''}
+                        `;
+                        slideElement.appendChild(overlay);
+                    }
+                    
+                } else {
+                    // Banner por defecto
+                    slideElement.classList.add('banner');
+                    slideElement.innerHTML = `
+                        <div>
+                            <h1>${title}</h1>
+                            ${description ? `<p>${description}</p>` : ''}
+                        </div>
+                    `;
+                }
 
                 container.appendChild(slideElement);
             });
@@ -377,6 +565,17 @@
             const allSlides = document.querySelectorAll('.slide');
             allSlides.forEach((slide, i) => {
                 slide.classList.toggle('active', i === index);
+                
+                // Si es video, reproducir cuando esté activo
+                const video = slide.querySelector('video');
+                if (video) {
+                    if (i === index) {
+                        video.currentTime = 0;
+                        video.play().catch(e => console.log('Autoplay bloqueado:', e));
+                    } else {
+                        video.pause();
+                    }
+                }
             });
             currentSlide = index;
         }
